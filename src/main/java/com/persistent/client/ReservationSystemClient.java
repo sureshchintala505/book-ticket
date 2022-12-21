@@ -10,7 +10,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import com.persistent.dao.Availability;
 import com.persistent.dto.AvailabilityDto;
 
-@FeignClient(name = "reservation-system")
+@FeignClient(name = "reservation-service")
 public interface ReservationSystemClient {
 
 
