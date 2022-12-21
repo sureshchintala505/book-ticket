@@ -1,6 +1,8 @@
 package com.persistent.controller;
 
 
+import javax.validation.Valid;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -19,13 +21,10 @@ public class BookTicketController {
 
 	
 	@PostMapping("book/ticket")
-	public ResponseEntity<Ticket> bookTicket(@RequestBody BookTicketDto reqDto) {
+	public ResponseEntity<Ticket> bookTicket(@Valid @RequestBody BookTicketDto reqDto) {
 		return ResponseEntity.ok(registrationServiceImpl.bookTicket(reqDto));
 	}
 
 	
 
 }
-// bookTicket makePayment cancelTicket
-
-//updateSchedule modifyTicketCount
