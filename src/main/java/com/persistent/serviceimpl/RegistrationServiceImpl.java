@@ -26,106 +26,107 @@ import com.persistent.repository.TrainInfoRepository;
 import com.persistent.service.ReservationService;
 
 import lombok.extern.slf4j.Slf4j;
+
 @Service
 @Slf4j
-public class RegistrationServiceImpl implements ReservationService{
-	
+public class RegistrationServiceImpl implements ReservationService {
+
 	@Autowired
 	private ReservationSystemClient service;
 	@Autowired
 	private AvailabilityRepository availabilityRepository;
-	
+
 	@Autowired
 	private TicketRepository ticketRepository;
-	
+
 	@Autowired
 	private PassengerRepository passengerRepository;
-	
+
 	@Autowired
 	private TrainInfoRepository trainInfoRepository;
-	
+
 	@Override
 	public Ticket bookTicket(BookTicketDto reqDto) {
-		log.info("input request details" + reqDto);
-		Passenger passenger = passengerRepository.findByUserId(reqDto.getUserId());
-		AvailabilityDto availabilityDto = new AvailabilityDto();
-		availabilityDto.setDate(reqDto.getDate());
-		//availabilityDto.setMobileNumber(reqDto.getPassenger().getMobileNumber());
-		availabilityDto.setTrainId(reqDto.getTrainId());
-		ResponseEntity<List<Availability>> res =service.ticketAvailability(availabilityDto);
-		List<Availability> availabilities =  res.getBody();
-		// final String uri = "http://localhost:8080/springrestexample/employees.xml";
+		try {
+			log.info("input request details" + reqDto);
+			Passenger passenger = passengerRepository.findByUserId(reqDto.getUserId());
+			if(passenger==null)
+				throw new ReservationException(AppConstants.INVALID_USER_ID, HttpStatus.BAD_REQUEST,
+						Severity.INFO);
+			
+			AvailabilityDto availabilityDto = new AvailabilityDto();
+			availabilityDto.setDate(reqDto.getDate());
+			// availabilityDto.setMobileNumber(reqDto.getPassenger().getMobileNumber());
+			availabilityDto.setTrainId(reqDto.getTrainId());
+			ResponseEntity<List<Availability>> res = service.ticketAvailability(availabilityDto);
+			List<Availability> availabilities = res.getBody();
+			String seatNumber = null;
+			String coach = null;
 
-		  //  RestTemplate restTemplate = new RestTemplate();
-		    //String result = restTemplate.getForObject(uri, String.class);
-		
-		//List<Availability> availabilities = availabilityRepository.findByTrainTrainIdAndDate(reqDto.getTrainId(),
-			//	reqDto.getDate());
-		String seatNumber = null;
-		String coach = null;
-
-		TrainInfo trainInfo = trainInfoRepository.findByTrainId(reqDto.getTrainId());
-		Ticket ticket = new Ticket();
-		if (!availabilities.isEmpty()) {
-			if (availabilities.stream().collect(Collectors.summingInt(Availability::getNoOfLowerSeatsAvailable))
-					+ availabilities.stream()
-							.collect(Collectors.summingInt(Availability::getNoOfUpperSeatsAvailable)) == 0) {
-				throw new ReservationException(AppConstants.SEATS_NOT_AVAILABLE, HttpStatus.ACCEPTED, Severity.INFO);
-			} else if (AppConstants.LOWER.equalsIgnoreCase(reqDto.getBerthType())
-					|| (passenger.getGender().equalsIgnoreCase(AppConstants.FEMALE) && passenger.getAge() > 40)
-					|| passenger.getAge() < 15 || passenger.getAge() > 60) {
-				if (availabilities.stream()
-						.collect(Collectors.summingInt(Availability::getNoOfLowerSeatsAvailable)) == 0)
-					throw new ReservationException(AppConstants.SEATS_NOT_AVAILABLE_IN_LOWER, HttpStatus.ACCEPTED,
+			TrainInfo trainInfo = trainInfoRepository.findByTrainId(reqDto.getTrainId());
+			if(trainInfo==null)
+				throw new ReservationException(AppConstants.INVALID_TRAIN_ID, HttpStatus.BAD_REQUEST,
+						Severity.INFO);
+			Ticket ticket = new Ticket();
+			if (!availabilities.isEmpty()) {
+				if (availabilities.stream().collect(Collectors.summingInt(Availability::getNoOfLowerSeatsAvailable))
+						+ availabilities.stream()
+								.collect(Collectors.summingInt(Availability::getNoOfUpperSeatsAvailable)) == 0) {
+					throw new ReservationException(AppConstants.SEATS_NOT_AVAILABLE, HttpStatus.ACCEPTED,
 							Severity.INFO);
-				else {
-					Availability availability = availabilities.stream()
-							.collect(Collectors.maxBy(Comparator.comparing(Availability::getNoOfLowerSeatsAvailable)))
-							.get();
+				} else if (AppConstants.LOWER.equalsIgnoreCase(reqDto.getBerthType())
+						|| (passenger.getGender().equalsIgnoreCase(AppConstants.FEMALE) && passenger.getAge() > 40)
+						|| passenger.getAge() < 15 || passenger.getAge() > 60) {
+					if (availabilities.stream()
+							.collect(Collectors.summingInt(Availability::getNoOfLowerSeatsAvailable)) == 0)
+						throw new ReservationException(AppConstants.SEATS_NOT_AVAILABLE_IN_LOWER, HttpStatus.ACCEPTED,
+								Severity.INFO);
+					else {
+						Availability availability = availabilities.stream().collect(
+								Collectors.maxBy(Comparator.comparing(Availability::getNoOfLowerSeatsAvailable))).get();
 
-					availability.setNoOfLowerSeatsAvailable(availability.getNoOfLowerSeatsAvailable() - 1);
-					availabilityRepository.save(availability);
-					seatNumber = availability.getCoach() + "-" + (availability.getNoOfLowerSeatsAvailable() + 1);
-					coach = availability.getCoach();
-					ticket.setBerthType(AppConstants.LOWER);
-				}
-			} else {
-				if (availabilities.stream()
-						.collect(Collectors.summingInt(Availability::getNoOfUpperSeatsAvailable)) != 0) {
-					Availability availability = availabilities.stream()
-							.collect(Collectors.maxBy(Comparator.comparing(Availability::getNoOfUpperSeatsAvailable)))
-							.get();
-					availability.setNoOfUpperSeatsAvailable(availability.getNoOfUpperSeatsAvailable() - 1);
-					availabilityRepository.save(availability);
-					seatNumber = availability.getCoach() + "-" + (availability.getNoOfUpperSeatsAvailable() + 1);
-					coach = availability.getCoach();
-					ticket.setBerthType(AppConstants.UPPER);
+						availability.setNoOfLowerSeatsAvailable(availability.getNoOfLowerSeatsAvailable() - 1);
+						availabilityRepository.save(availability);
+						seatNumber = availability.getCoach() + "-" + (availability.getNoOfLowerSeatsAvailable() + 1);
+						coach = availability.getCoach();
+						ticket.setBerthType(AppConstants.LOWER);
+					}
 				} else {
-					Availability availability = availabilities.stream()
-							.collect(Collectors.maxBy(Comparator.comparing(Availability::getNoOfLowerSeatsAvailable)))
-							.get();
-					availability.setNoOfLowerSeatsAvailable(availability.getNoOfLowerSeatsAvailable() - 1);
-					ticket.setBerthType(AppConstants.LOWER);
-					seatNumber = availability.getCoach() + "-" + (availability.getNoOfLowerSeatsAvailable() + 1);
-					coach = availability.getCoach();
-					availabilityRepository.save(availability);
-				}
+					if (availabilities.stream()
+							.collect(Collectors.summingInt(Availability::getNoOfUpperSeatsAvailable)) != 0) {
+						Availability availability = availabilities.stream().collect(
+								Collectors.maxBy(Comparator.comparing(Availability::getNoOfUpperSeatsAvailable))).get();
+						availability.setNoOfUpperSeatsAvailable(availability.getNoOfUpperSeatsAvailable() - 1);
+						availabilityRepository.save(availability);
+						seatNumber = availability.getCoach() + "-" + (availability.getNoOfUpperSeatsAvailable() + 1);
+						coach = availability.getCoach();
+						ticket.setBerthType(AppConstants.UPPER);
+					} else {
+						Availability availability = availabilities.stream().collect(
+								Collectors.maxBy(Comparator.comparing(Availability::getNoOfLowerSeatsAvailable))).get();
+						availability.setNoOfLowerSeatsAvailable(availability.getNoOfLowerSeatsAvailable() - 1);
+						ticket.setBerthType(AppConstants.LOWER);
+						seatNumber = availability.getCoach() + "-" + (availability.getNoOfLowerSeatsAvailable() + 1);
+						coach = availability.getCoach();
+						availabilityRepository.save(availability);
+					}
 
+				}
 			}
+			ticket.setTicketCost(reqDto.getTicketCost());
+			ticket.setStartingLocation(reqDto.getStartingLocation());
+			ticket.setDestination(reqDto.getDestination());
+			ticket.setDate(reqDto.getDate());
+			ticket.setStatus(0);
+			ticket.setCoach(coach);
+			ticket.setSeatNumber(seatNumber);
+			ticket.setTrain(trainInfo);
+			ticket.setPassenger(passenger);
+			ticketRepository.save(ticket);
+			return ticket;
+		} catch (Exception e) {
+			throw new ReservationException(e.getMessage(), HttpStatus.ACCEPTED, Severity.INFO);
 		}
-		ticket.setTicketCost(reqDto.getTicketCost());
-		ticket.setStartingLocation(reqDto.getStartingLocation());
-		ticket.setDestination(reqDto.getDestination());
-		ticket.setDate(reqDto.getDate());
-		ticket.setStatus(0);
-		ticket.setCoach(coach);
-		ticket.setSeatNumber(seatNumber);
-		ticket.setTrain(trainInfo);
-		ticket.setPassenger(passenger);
-		ticketRepository.save(ticket);
-		//paymentRepository.save(new Payment(null, passenger, reqDto.getCardType(), reqDto.getCardNumber(), new Date()));
-		return ticket;
 	}
 
-	
 }
