@@ -8,10 +8,10 @@ spring:
   application:
     name: book-ticket
   datasource:
-    password: root
+     password: root
     username: root
     url: jdbc:mysql://localhost:3306/reservation
-    driver-class-name: com.mysql.cj.jdbc.Driver
+     driver-class-name: com.mysql.cj.jdbc.Driver
   jpa:
     hibernate:
       ddl-auto: update

@@ -8,6 +8,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.HttpClientErrorException;
 
 import com.persistent.client.ReservationSystemClient;
 import com.persistent.dao.Availability;
@@ -58,7 +59,13 @@ public class RegistrationServiceImpl implements ReservationService {
 			availabilityDto.setDate(reqDto.getDate());
 			// availabilityDto.setMobileNumber(reqDto.getPassenger().getMobileNumber());
 			availabilityDto.setTrainId(reqDto.getTrainId());
-			ResponseEntity<List<Availability>> res = service.ticketAvailability(availabilityDto);
+			ResponseEntity<List<Availability>> res = null;
+			try {
+			 res = service.ticketAvailability(availabilityDto);
+			}
+			catch(HttpClientErrorException e) {
+				
+			}
 			List<Availability> availabilities = res.getBody();
 			String seatNumber = null;
 			String coach = null;
@@ -78,9 +85,10 @@ public class RegistrationServiceImpl implements ReservationService {
 						|| (passenger.getGender().equalsIgnoreCase(AppConstants.FEMALE) && passenger.getAge() > 40)
 						|| passenger.getAge() < 15 || passenger.getAge() > 60) {
 					if (availabilities.stream()
-							.collect(Collectors.summingInt(Availability::getNoOfLowerSeatsAvailable)) == 0)
+							.collect(Collectors.summingInt(Availability::getNoOfLowerSeatsAvailable)) == 0) {
 						throw new ReservationException(AppConstants.SEATS_NOT_AVAILABLE_IN_LOWER, HttpStatus.ACCEPTED,
 								Severity.INFO);
+					}
 					else {
 						Availability availability = availabilities.stream().collect(
 								Collectors.maxBy(Comparator.comparing(Availability::getNoOfLowerSeatsAvailable))).get();
@@ -112,6 +120,9 @@ public class RegistrationServiceImpl implements ReservationService {
 					}
 
 				}
+			}else {
+				throw new ReservationException(AppConstants.NO_AVAILABILITY, HttpStatus.OK,
+						Severity.INFO);
 			}
 			ticket.setTicketCost(reqDto.getTicketCost());
 			ticket.setStartingLocation(reqDto.getStartingLocation());
